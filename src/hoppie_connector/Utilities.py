@@ -2,6 +2,11 @@ import re
 
 ICAO_AIRPORT_REGEX: str = r'[A-Z]{4}'
 STATION_NAME_REGEX: str = r'[A-Z0-9]{3,8}'
+CALLSIGN_FILE_VALID_EXTENSIONS: str = r'ARV|LDG|LSH|REL|TOP'    # SEPARATE EACH EXTENSION BY A '|'
+CALLSIGN_FILE_NAME_REGEX: str = r'[A-Z0-9]{1,8}\.(' + CALLSIGN_FILE_VALID_EXTENSIONS + r')' # CALLSIGN.EXTENSION
+ROUTE_FILE_VALID_EXTENSIONS: str = r'ROU|RTE|VIA'   # SEPARATE EACH EXTENSION BY A '|'
+ROUTE_FILE_NAME_REGEX: str = r'A-Z0-9{1,8}\.(' + ROUTE_FILE_VALID_EXTENSIONS + r')' # ROUTE.EXTENSION
+COMPANY_CODE_REGEX: str = r'[A-Z0-9]{3}' # three-letter alphanumeric company code, such as KLM
 
 def is_valid_airport_code(designator: str) -> bool:
     """Simple helper function to determine validity of a 4-letter ICAO airport designator.
