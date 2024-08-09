@@ -1,5 +1,5 @@
 from .ADSC import AdscData, BasicGroup, FlightIdentGroup, EarthRefGroup, MeteoGroup
-from .Utilities import is_valid_station_name, is_valid_airport_code, get_fixed_width_float_str, ICAO_AIRPORT_REGEX, STATION_NAME_REGEX
+from .Utilities import is_valid_station_name, is_valid_airport_code,is_valid_file_name, get_fixed_width_float_str, ICAO_AIRPORT_REGEX, STATION_NAME_REGEX,FILE_VALID_EXTENSIONS
 from datetime import datetime, time, UTC
 from typing import Self
 import enum
@@ -17,6 +17,10 @@ class HoppieMessage(object):
         POLL = 'poll'
         PEEK = 'peek'
         PING = 'ping'
+        # files types
+        PUTFILE = 'putfile'
+        # PUTBINFILE = 'putbinfile'
+        # DATAREQ = 'datareq'
 
         def __repr__(self) -> str:
             return f"HoppieMessage.MessageType.{self.name}"
@@ -28,6 +32,8 @@ class HoppieMessage(object):
             `from_name` and `to_name` must be valid station names (ICAO flight
             number, 3-letter org code or special station names)
 
+            `to_name` must contain callsign or route name and the file extension for file uploads
+
         Args:
             from_name (str): Sender station name
             to_name (str): Recipient station name
@@ -37,12 +43,17 @@ class HoppieMessage(object):
             raise ValueError('Invalid message type')
         elif not is_valid_station_name(from_name):
             raise ValueError('Invalid FROM station name')
-        elif not is_valid_station_name(to_name):
-            raise ValueError('Invalid TO station name')
-        else:
-            self._from = from_name
-            self._to = to_name
-            self._type = type
+        match type:
+            case self.MessageType.PUTFILE:
+                if not is_valid_file_name(to_name):
+                    raise ValueError(f"Invalid TO filename\nmust follow 'CALLSIGN.EXTENSION' or 'ROUTE.EXTENSION' pattern\nwhere EXTENSION is one of {FILE_VALID_EXTENSIONS}")
+            case _:
+                # default TO validation
+                if not is_valid_station_name(to_name):
+                    raise ValueError('Invalid TO station name')             
+        self._from = from_name
+        self._to = to_name
+        self._type = type
 
     def get_from_name(self) -> str:
         """Return sender station name
@@ -159,6 +170,46 @@ class TelexMessage(HoppieMessage):
 
     def __repr__(self) -> str:
         return f"TelexMessage(from_name={self.get_from_name()!r}, to_name={self.get_to_name()!r}, message={self.get_message()!r})"
+
+
+class PutFileMessage(HoppieMessage):
+    """PutFileMessage(from_name,to_name,file)
+
+    File upload ACARS message
+    """
+    _FILE_MAX_MSG_LEN: int = 500
+
+    def __init__(self, from_name: str, to_name: str, packet: str):
+        """Create a PutFile message
+
+        Args: 
+            from_name (str): sender station (for dispatch three-leter company code)
+            to_name (str): filename (always converted to uppercase)
+            packet (str): file content
+        """
+        if len(packet) > self._FILE_MAX_MSG_LEN:
+            raise ValueError(f'File content too long, File size is "{len(packet)}" characters the maximum is "{self._FILE_MAX_MSG_LEN}"')
+        elif not packet.isascii():
+            raise ValueError('File content contains non-ASCII characters')
+        else:
+            super().__init__(from_name, to_name, self.MessageType.PUTFILE)
+            self._packet = packet.upper()
+    def get_packet_content(self) -> str:
+        """Return packet content
+        """
+        return self._packet
+    def __repr__(self) -> str:
+        return f"PutFileMessage(from_name={self.get_from_name()!r}, to_name={self.get_to_name()!r}, packet={self.get_packet_content()!r})"
+
+class DataReqMessage(HoppieMessage):
+    """DataReqMessage(from_name, to_name, packet)
+
+    Args:
+        from_name (str): 
+        to_name (str):
+
+    """
+
 
 class ProgressMessage(HoppieMessage):
     """ProgressMessage(from_name, to_name, dep, arr, time_out[, time_eta[, time_off[, time_on[, time_in]]]])
